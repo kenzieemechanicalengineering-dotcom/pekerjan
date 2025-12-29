@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Karyawan - Kenzie Engineering</title>
+    <style>
+        :root { --primary-color: #007bff; --light-gray: #f0f2f5; --border-color: #dfe1e5; }
+        body { font-family: sans-serif; background-color: var(--light-gray); margin: 0; padding: 20px; }
+        .page { display: none; max-width: 600px; margin: 20px auto; background: #fff; padding: 24px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .page.active { display: block; }
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: bold; }
+        .form-input { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; }
+        .btn { width: 100%; padding: 12px; border-radius: 8px; border: none; cursor: pointer; color: white; font-weight: bold; margin-bottom: 10px; }
+        .btn-primary { background: var(--primary-color); }
+        .btn-success { background: #28a745; }
+        .btn-info { background: #17a2b8; }
+        .btn-back { cursor: pointer; color: var(--primary-color); text-decoration: none; display: inline-block; margin-bottom: 15px; }
+        .app-logo { display: block; margin: 0 auto 10px; max-width: 100px; }
+        .reminder-box { background: #fff3cd; color: #856404; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px; }
+        .report-card { border: 1px solid var(--border-color); padding: 15px; margin-bottom: 15px; border-radius: 8px; background: #f9f9f9; }
+        .report-card img { width: 100%; border-radius: 6px; margin-top: 10px; }
+        .admin-comment { background: #d4edda; color: #155724; padding: 10px; margin-top: 10px; border-radius: 6px; }
+    </style>
+</head>
+<body>
+
+    <div id="page-login" class="page active">
+        <h2 style="text-align: center;">Login Karyawan</h2>
+        <div class="reminder-box">
+            <strong>⚠️ JADWAL LAPOR:</strong><br>16:00 & 23:00
+        </div>
+        <form id="login-form">
+            <div class="form-group"><label>Username</label><input type="text" id="username" class="form-input" required></div>
+            <div class="form-group"><label>Password</label><input type="password" id="password" class="form-input" required></div>
+            <button type="submit" class="btn btn-primary">Masuk</button>
+            <p id="error-msg" style="color:red; display:none; text-align:center;">Login Gagal!</p>
+        </form>
+    </div>
+
+    <div id="page-laporan" class="page">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h3>Halo, <span id="user-name">User</span></h3>
+            <a onclick="logout()" style="color:red; cursor:pointer;">Logout</a>
+        </div>
+        <button class="btn btn-info" onclick="showHistory()">📜 Lihat Riwayat Saya</button>
+        <hr>
+        <form id="report-form">
+            <div class="form-group"><label>Tanggal</label><input type="date" id="tgl-lapor" class="form-input" required></div>
+            <div class="form-group"><label>Kegiatan</label><textarea id="catatan" class="form-input" required rows="4"></textarea></div>
+            <div class="form-group"><label>Foto Bukti</label><input type="file" id="foto" class="form-input" accept="image/*" required></div>
+            <button type="submit" class="btn btn-success">Kirim Laporan</button>
+        </form>
+    </div>
+
+    <div id="page-history" class="page">
+        <a class="btn-back" onclick="showPage('page-laporan')">← Kembali</a>
+        <h3>Riwayat Laporan</h3>
+        <div id="history-container"></div>
+    </div>
+
+    <script>
+        const users = [
+            { user: "satrio", pass: "456", name: "Satrio" },
+            { user: "bagus", pass: "456", name: "Bagus" }
+        ];
+        let currentUser = null;
+
+        // Cek LocalStorage saat load
+        function getDB() { return JSON.parse(localStorage.getItem('kenzieReports')) || []; }
+        function saveDB(data) { localStorage.setItem('kenzieReports', JSON.stringify(data)); }
+
+        function showPage(id) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+        }
+
+        document.getElementById('login-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const u = document.getElementById('username').value.toLowerCase();
+            const p = document.getElementById('password').value;
+            const found = users.find(x => x.user === u && x.pass === p);
+            
+            if(found) {
+                currentUser = found;
+                document.getElementById('user-name').innerText = found.name;
+                document.getElementById('tgl-lapor').valueAsDate = new Date();
+                showPage('page-laporan');
+            } else {
+                document.getElementById('error-msg').style.display = 'block';
+            }
+        });
+
+        document.getElementById('report-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const fileInput = document.getElementById('foto');
+            
+            // Convert gambar ke Base64 agar bisa disimpan di LocalStorage
+            const reader = new FileReader();
+            reader.readAsDataURL(fileInput.files[0]);
+            reader.onload = function () {
+                const newReport = {
+                    id: Date.now(),
+                    date: document.getElementById('tgl-lapor').value,
+                    note: document.getElementById('catatan').value,
+                    image: reader.result, // Base64 Image
+                    user: currentUser.name,
+                    username: currentUser.user,
+                    adminComment: "-"
+                };
+                
+                const db = getDB();
+                db.push(newReport);
+                saveDB(db);
+                
+                alert("Laporan Terkirim!");
+                e.target.reset();
+                document.getElementById('tgl-lapor').valueAsDate = new Date();
+            };
+        });
+
+        function showHistory() {
+            const db = getDB();
+            const myReports = db.filter(r => r.username === currentUser.user).sort((a,b)=>b.id - a.id);
+            const container = document.getElementById('history-container');
+            container.innerHTML = "";
+            
+            if(myReports.length === 0) {
+                container.innerHTML = "<p>Belum ada riwayat.</p>";
+            } else {
+                myReports.forEach(r => {
+                    container.innerHTML += `
+                        <div class="report-card">
+                            <b>${r.date}</b><br>${r.note}
+                            <img src="${r.image}">
+                            <div class="admin-comment">Admin: ${r.adminComment}</div>
+                        </div>`;
+                });
+            }
+            showPage('page-history');
+        }
+
+        function logout() { location.reload(); }
+    </script>
+</body>
+</html>

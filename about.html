@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin System - Kenzie Engineering</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <style>
+        /* ================= GAYA TAMPILAN LAYAR (UI) ================= */
+        :root { --primary: #007bff; --secondary: #6c757d; --bg: #f4f6f9; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); padding: 20px; margin: 0; }
+        
+        .page { display: none; max-width: 900px; margin: 0 auto; background: #fff; padding: 25px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .page.active { display: block; }
+        
+        /* Tombol & Input */
+        .btn { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; color: white; font-weight: bold; }
+        .btn-blue { background: var(--primary); width: 100%; margin-bottom: 10px; }
+        .btn-menu { display: block; background: #fff; border: 2px solid var(--primary); color: var(--primary); padding: 20px; text-align: center; margin-bottom: 15px; text-decoration: none; border-radius: 8px; font-size: 1.1em; transition: 0.2s; }
+        .btn-menu:hover { background: var(--primary); color: #fff; }
+        .form-input { width: 100%; padding: 8px; margin-bottom: 10px; box-sizing: border-box; border: 1px solid #ddd; border-radius: 4px; }
+        
+        /* Layout Form Invoice */
+        .inv-section { border: 1px dashed #ccc; padding: 10px; margin-bottom: 10px; background: #fafafa; border-radius: 5px; }
+        .resume-section { border: 1px dashed var(--secondary); padding: 10px; margin-bottom: 10px; background: #fdfdfd; border-radius: 5px; }
+        .flex-row { display: flex; gap: 10px; }
+        .section-header { font-weight: bold; margin-top: 20px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 5px; }
+        
+        .report-card { border-left: 5px solid var(--primary); background: #fff; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .report-img { max-height: 150px; cursor: pointer; }
+
+        /* ================= GAYA CETAK (PRINT) A4 ================= */
+        #print-area {
+            position: fixed; 
+            left: -9999px; /* Sembunyikan dari layar normal */
+            width: 210mm; 
+            min-height: 297mm;
+            background: #fff; 
+            font-family: Arial, sans-serif; 
+            color: black;
+            padding: 15mm 20mm; /* Margin A4 yang aman */
+            box-sizing: border-box;
+        }
+
+        @media print {
+            body * { visibility: hidden; } /* Sembunyikan UI Web */
+            #print-area, #print-area * { visibility: visible; } /* Tampilkan Kertas Print */
+            
+            #print-area {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                margin: 0;
+                padding: 10mm 15mm; /* Margin saat print fisik */
+                box-shadow: none;
+            }
+            
+            @page {
+                size: A4;
+                margin: 0; /* Margin ditangani oleh padding container */
+            }
+        }
+
+        /* Styling Elemen dalam Kertas Print */
+        .header-print { display: flex; gap: 15px; align-items: center; margin-bottom: 15px; border-bottom: 2px solid #000; padding-bottom: 10px; }
+        .company-name { font-family: 'Arial Black', sans-serif; font-size: 16pt; color: #009900; text-decoration: underline; margin: 0; }
+        .sub-header { font-size: 9pt; margin: 2px 0; }
+        
+        table.p-table { width: 100%; border-collapse: collapse; border: 2px solid #000; margin-bottom: 15px; font-size: 9pt; }
+        table.p-table th, table.p-table td { border: 1px solid #000; padding: 4px 6px; }
+        table.p-table th { text-align: center; background-color: #f0f0f0; font-weight: bold; }
+        
+        .meta-table { width: 100%; font-size: 10pt; margin-bottom: 15px; font-weight: bold; }
+        .meta-table td { padding: 2px; vertical-align: top; }
+        
+        .print-section-title { font-weight: bold; text-transform: uppercase; font-size: 10pt; margin-bottom: 5px; margin-top: 10px; text-decoration: underline; }
+
+        .summary-box { border: 2px solid #000; padding: 5px; font-size: 10pt; font-weight: bold; page-break-inside: avoid; }
+        .row-sum { display: flex; justify-content: space-between; padding: 2px 0; }
+        .bg-green { background-color: #00FF00; color: #000; }
+        .bg-yellow { background-color: #FFFF00; }
+    </style>
+</head>
+<body>
+
+    <div id="p-login" class="page active" style="max-width: 400px; text-align: center; margin-top: 50px;">
+        <h2>Login Admin</h2>
+        <input type="text" id="a-user" class="form-input" placeholder="Username">
+        <input type="password" id="a-pass" class="form-input" placeholder="Password">
+        <button onclick="doLogin()" class="btn btn-blue">Masuk</button>
+    </div>
+
+    <div id="p-dashboard" class="page">
+        <h2>Dashboard Admin</h2>
+        <p>Halo, <b>Admin Wawan</b></p>
+        <div style="margin-top: 20px;">
+            <a class="btn-menu" onclick="showReports()">📂 Cek Laporan Masuk</a>
+            <a class="btn-menu" onclick="showInvoice()">📄 Buat Invoice Baru</a>
+        </div>
+        <button onclick="location.reload()" style="color:red; background:none; border:none; margin-top:20px; cursor:pointer;">Logout</button>
+    </div>
+
+    <div id="p-reports" class="page">
+        <button onclick="nav('p-dashboard')" class="btn" style="background:#6c757d; margin-bottom:15px;">← Kembali</button>
+        <h3>Laporan Masuk</h3>
+        <div id="report-list"></div>
+    </div>
+
+    <div id="p-invoice" class="page">
+        <button onclick="nav('p-dashboard')" class="btn" style="background:#6c757d;">← Kembali</button>
+        <h3>Form Invoice Project</h3>
+        
+        <div class="flex-row">
+            <input type="text" id="inv-cust" class="form-input" placeholder="Nama Customer">
+            <input type="date" id="inv-date" class="form-input">
+        </div>
+        <input type="text" id="inv-proj" class="form-input" placeholder="Nama Project">
+        <input type="text" id="inv-loc" class="form-input" placeholder="Lokasi Project">
+        
+        <div class="section-header">
+            <span>1. Rincian Pengeluaran (Bahan/Jasa)</span>
+            <button onclick="addItem()" class="btn" style="background:var(--primary); padding:5px 10px; font-size:0.8em;">+ Item</button>
+        </div>
+        <div id="items-container"></div>
+        <div style="text-align: right; font-weight: bold; margin-bottom: 20px;">
+            Total Rincian: <span id="ui-total-item">Rp 0</span>
+        </div>
+
+        <div class="section-header" style="border-top: 4px solid #eee;">
+            <span>2. Resume Pengeluaran (Operasional)</span>
+            <button onclick="addResume()" class="btn" style="background:var(--secondary); padding:5px 10px; font-size:0.8em;">+ Resume</button>
+        </div>
+        <div style="background: #e2e3e5; padding: 10px; border-radius: 5px; font-size: 0.9em; margin-bottom: 10px;">
+            ℹ️ <i>Catatan: Total Resume tidak akan dijumlahkan ke tagihan customer (hanya info).</i>
+        </div>
+        <div id="resume-container"></div>
+        <div style="text-align: right; font-weight: bold; color: var(--secondary);">
+            Total Resume: <span id="ui-total-resume">Rp 0</span>
+        </div>
+
+        <div style="background: #fff3cd; padding: 15px; margin-top: 20px; border-radius: 8px; border: 1px solid #ffeeba;">
+            <div style="font-size: 1.1em; font-weight: bold; margin-bottom: 5px;">
+                Total Tagihan (Dari Rincian): <span id="ui-grand-total" style="color:var(--primary);">Rp 0</span>
+            </div>
+            
+            <label style="font-weight: bold; display:block; margin-top:10px;">Rencana Biaya (Deposit/Kasbon):</label>
+            <input type="number" id="inv-dp" class="form-input" oninput="calcTotal()" placeholder="0" style="font-weight: bold; font-size: 1.1em;">
+            
+            <div style="margin-top: 10px; padding-top:10px; border-top: 1px dashed #999; font-weight: bold; font-size: 1.2em;">
+                Kekurangan: <span id="ui-kekurangan">Rp 0</span>
+            </div>
+        </div>
+
+        <div style="margin-top: 20px; display: flex; gap: 10px;">
+            <button onclick="printInv()" class="btn" style="background: #17a2b8; flex:1;">🖨️ Print</button>
+            <button onclick="downloadPDF()" class="btn" style="background: #dc3545; flex:1;">📥 PDF</button>
+        </div>
+    </div>
+
+    <div id="print-area">
+        <div class="header-print">
+            <img src="logo.jpg" style="width:90px; height:auto;" onerror="this.style.display='none'">
+            <div>
+                <h1 class="company-name">Kenzie Engineering & Mechanical</h1>
+                <p class="sub-header">Balongsari Krajan 1 No.60, Kec.Tandes, Kel.Balongsari<br>Surabaya Barat, Jawa Timur 60186</p>
+                <p class="sub-header" style="font-style:italic; color:#00AA00;">Latitude : 7*26"55 &nbsp;&nbsp; Longitude : 112*44'18</p>
+            </div>
+        </div>
+        
+        <table class="meta-table">
+            <tr>
+                <td width="15%">Customer</td><td width="2%">:</td><td width="40%"><span id="p-cust"></span></td>
+                <td width="15%">Tanggal</td><td width="2%">:</td><td><span id="p-date"></span></td>
+            </tr>
+            <tr>
+                <td>Lokasi</td><td>:</td><td><span id="p-loc"></span></td>
+                <td>Project</td><td>:</td><td><span id="p-proj"></span></td>
+            </tr>
+        </table>
+
+        <div class="print-section-title">RINCIAN PENGELUARAN</div>
+        <table class="p-table">
+            <thead>
+                <tr>
+                    <th style="width: 5%;">No</th>
+                    <th>Uraian</th>
+                    <th style="width: 15%;">Harga</th>
+                    <th style="width: 10%;">Banyaknya</th>
+                    <th style="width: 15%;">Jumlah</th>
+                    <th style="width: 20%;">Keterangan</th>
+                </tr>
+            </thead>
+            <tbody id="p-tbody-item"></tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="4" style="text-align:center; font-weight:bold;">Jumlah Pengeluaran</td>
+                    <td style="text-align:right; font-weight:bold;" id="p-sum-item">Rp 0</td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+
+        <div class="print-section-title">RESUME PENGELUARAN</div>
+        <table class="p-table">
+            <thead>
+                <tr>
+                    <th style="width: 5%;">No</th>
+                    <th>Jenis Pengeluaran</th>
+                    <th style="width: 15%;">Jumlah</th>
+                    <th>Keterangan</th>
+                </tr>
+            </thead>
+            <tbody id="p-tbody-resume"></tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="2" style="text-align:left; font-weight:bold;">Jumlah Pengeluaran Operasional</td>
+                    <td style="text-align:right; font-weight:bold;" id="p-sum-resume">Rp 0</td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+
+        <div class="summary-box">
+            <div class="row-sum">
+                <span>Total Rencana Biaya (Deposit/Kasbon)</span>
+                <span id="p-rencana">Rp 0</span>
+            </div>
+            <div class="row-sum bg-green" style="border-top: 1px solid #000; padding-top: 2px;">
+                <span>Total Kekurangan Biaya</span>
+                <span id="p-kurang">Rp 0</span>
+            </div>
+            <div style="margin-top: 5px; font-size: 9pt; font-weight: normal; font-style: italic;">
+                E-Payment : BCA 4630032496 a/n Bambang Mochammad Satriyawan
+            </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; margin-top: 40px; text-align: center; font-weight: bold; font-size: 10pt;">
+            <div style="width: 40%;">
+                <p>Technician</p>
+                <br><br><br>
+                <p style="text-decoration: underline;">Bambang M Satryawan</p>
+            </div>
+            <div style="width: 40%;">
+                <p>Customer (Menyetujui)</p>
+                <br><br><br>
+                <p>( <span id="p-sign-cust">..........................</span> )</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // LOGIKA ADMIN
+        function getDB() { return JSON.parse(localStorage.getItem('kenzieReports')) || []; }
+        function saveDB(data) { localStorage.setItem('kenzieReports', JSON.stringify(data)); }
+        function nav(id) { document.querySelectorAll('.page').forEach(p => p.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+
+        // 1. LOGIN
+        function doLogin() {
+            const u = document.getElementById('a-user').value;
+            const p = document.getElementById('a-pass').value;
+            if(u === 'wawan' && p === '456') nav('p-dashboard');
+            else alert('Username/Password Salah!');
+        }
+
+        // 2. LIHAT LAPORAN
+        function showReports() {
+            const db = getDB();
+            const container = document.getElementById('report-list');
+            container.innerHTML = '';
+            
+            if(db.length === 0) container.innerHTML = '<p>Belum ada laporan.</p>';
+            
+            db.sort((a,b) => b.id - a.id).forEach(r => {
+                container.innerHTML += `
+                    <div class="report-card">
+                        <h4>${r.user} - ${r.date}</h4>
+                        <p>${r.note}</p>
+                        <img src="${r.image}" class="report-img" onclick="window.open(this.src)">
+                        <div style="margin-top:10px;">
+                            <input type="text" id="c-${r.id}" placeholder="Komentar Admin..." value="${r.adminComment !== '-' ? r.adminComment : ''}" class="form-input">
+                            <button onclick="saveComment(${r.id})" class="btn" style="background:green; padding:5px 10px;">Simpan</button>
+                        </div>
+                    </div>`;
+            });
+            nav('p-reports');
+        }
+
+        function saveComment(id) {
+            let db = getDB();
+            let idx = db.findIndex(x => x.id === id);
+            if(idx !== -1) {
+                db[idx].adminComment = document.getElementById('c-'+id).value;
+                saveDB(db);
+                alert("Komentar tersimpan");
+            }
+        }
+
+        // 3. LOGIKA INVOICE
+        let itemCount = 0;
+        let resumeCount = 0;
+
+        function showInvoice() {
+            document.getElementById('inv-date').valueAsDate = new Date();
+            if(document.getElementById('items-container').children.length === 0) addItem(); 
+            if(document.getElementById('resume-container').children.length === 0) addResume();
+            calcTotal();
+            nav('p-invoice');
+        }
+
+        function addItem() {
+            itemCount++;
+            const div = document.createElement('div');
+            div.className = 'inv-section';
+            div.innerHTML = `
+                <div style="display:flex; justify-content:space-between;"><b>Item ${itemCount}</b> <span onclick="this.parentElement.parentElement.remove(); calcTotal()" style="color:red; cursor:pointer;">[Hapus]</span></div>
+                <input type="text" class="form-input i-desc" placeholder="Uraian (cth: Kabel)">
+                <div class="flex-row">
+                    <input type="number" class="form-input i-qty" placeholder="Qty" oninput="calcTotal()">
+                    <input type="number" class="form-input i-price" placeholder="Harga Satuan" oninput="calcTotal()">
+                </div>
+                <input type="text" class="form-input i-note" placeholder="Keterangan">
+            `;
+            document.getElementById('items-container').appendChild(div);
+        }
+
+        function addResume() {
+            resumeCount++;
+            const div = document.createElement('div');
+            div.className = 'resume-section';
+            div.innerHTML = `
+                <div style="display:flex; justify-content:space-between;"><b>Resume ${resumeCount}</b> <span onclick="this.parentElement.parentElement.remove(); calcTotal()" style="color:red; cursor:pointer;">[Hapus]</span></div>
+                <input type="text" class="form-input r-desc" placeholder="Jenis (cth: Bensin)">
+                <div class="flex-row">
+                    <input type="number" class="form-input r-amount" placeholder="Jumlah Biaya" oninput="calcTotal()">
+                    <input type="text" class="form-input r-note" placeholder="Keterangan">
+                </div>
+            `;
+            document.getElementById('resume-container').appendChild(div);
+        }
+
+        function formatRp(n) { return 'Rp ' + Number(n).toLocaleString('id-ID'); }
+
+        function calcTotal() {
+            // 1. Hitung Total Barang (Item)
+            let totalItem = 0;
+            document.querySelectorAll('.inv-section').forEach(el => {
+                const q = el.querySelector('.i-qty').value || 0;
+                const p = el.querySelector('.i-price').value || 0;
+                totalItem += (q * p);
+            });
+
+            // 2. Hitung Total Resume (Hanya untuk info)
+            let totalResume = 0;
+            document.querySelectorAll('.resume-section').forEach(el => {
+                const a = el.querySelector('.r-amount').value || 0;
+                totalResume += Number(a);
+            });
+
+            // 3. Logika Utama: Tagihan = Total Item (Resume TIDAK DIHITUNG ke Tagihan)
+            const grandTotal = totalItem; 
+            const dp = document.getElementById('inv-dp').value || 0;
+            const kekurangan = grandTotal - dp;
+
+            // Update UI Form
+            document.getElementById('ui-total-item').innerText = formatRp(totalItem);
+            document.getElementById('ui-total-resume').innerText = formatRp(totalResume);
+            
+            document.getElementById('ui-grand-total').innerText = formatRp(grandTotal);
+            
+            const elKurang = document.getElementById('ui-kekurangan');
+            if(kekurangan >= 0) {
+                 elKurang.innerText = formatRp(kekurangan);
+                 elKurang.style.color = 'red';
+            } else {
+                 elKurang.innerText = "(" + formatRp(Math.abs(kekurangan)) + ")"; // Surplus
+                 elKurang.style.color = 'green';
+            }
+
+            return { totalItem, totalResume, grandTotal, dp, kekurangan };
+        }
+
+        function syncPrint() {
+            // Header Info
+            document.getElementById('p-cust').innerText = document.getElementById('inv-cust').value || "-";
+            document.getElementById('p-proj').innerText = document.getElementById('inv-proj').value || "-";
+            document.getElementById('p-loc').innerText = document.getElementById('inv-loc').value || "-";
+            document.getElementById('p-sign-cust').innerText = document.getElementById('inv-cust').value || "..........................";
+            
+            const d = new Date(document.getElementById('inv-date').value);
+            document.getElementById('p-date').innerText = !isNaN(d) ? d.toLocaleDateString('id-ID') : "-";
+
+            // Table Item
+            const tbodyItem = document.getElementById('p-tbody-item');
+            tbodyItem.innerHTML = '';
+            let idxItem = 1;
+            document.querySelectorAll('.inv-section').forEach(el => {
+                const desc = el.querySelector('.i-desc').value;
+                const qty = el.querySelector('.i-qty').value;
+                const price = el.querySelector('.i-price').value;
+                const note = el.querySelector('.i-note').value;
+                const total = qty * price;
+                
+                if(desc) {
+                    tbodyItem.innerHTML += `
+                        <tr>
+                            <td style="text-align:center;">${idxItem++}</td>
+                            <td>${desc}</td>
+                            <td style="text-align:right;">${formatRp(price)}</td>
+                            <td style="text-align:center;">${qty}</td>
+                            <td style="text-align:right;">${formatRp(total)}</td>
+                            <td>${note}</td>
+                        </tr>`;
+                }
+            });
+
+            // Table Resume
+            const tbodyResume = document.getElementById('p-tbody-resume');
+            tbodyResume.innerHTML = '';
+            let idxResume = 1;
+            document.querySelectorAll('.resume-section').forEach(el => {
+                const desc = el.querySelector('.r-desc').value;
+                const amount = el.querySelector('.r-amount').value;
+                const note = el.querySelector('.r-note').value;
+                
+                if(desc) {
+                    tbodyResume.innerHTML += `
+                        <tr>
+                            <td style="text-align:center;">${idxResume++}</td>
+                            <td>${desc}</td>
+                            <td style="text-align:right;">${formatRp(amount)}</td>
+                            <td>${note}</td>
+                        </tr>`;
+                }
+            });
+
+            // Footer Totals
+            const nums = calcTotal();
+            document.getElementById('p-sum-item').innerText = formatRp(nums.totalItem);
+            document.getElementById('p-sum-resume').innerText = formatRp(nums.totalResume);
+            
+            document.getElementById('p-rencana').innerText = formatRp(nums.dp);
+            
+            const pKurang = document.getElementById('p-kurang');
+            if(nums.kekurangan >= 0) {
+                 pKurang.innerText = formatRp(nums.kekurangan);
+            } else {
+                 pKurang.innerText = "(" + formatRp(Math.abs(nums.kekurangan)) + ")";
+            }
+        }
+
+        function printInv() {
+            syncPrint();
+            window.print();
+        }
+
+        async function downloadPDF() {
+            syncPrint();
+            const el = document.getElementById('print-area');
+            
+            // Atur posisi agar terlihat oleh html2canvas
+            el.style.position = 'absolute'; 
+            el.style.left = '0';
+            el.style.top = '0';
+            el.style.zIndex = '9999';
+
+            const canvas = await html2canvas(el, { scale: 2 });
+            const imgData = canvas.toDataURL('image/png');
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF('p', 'mm', 'a4'); // Portrait, mm, A4
+            
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+            
+            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+            pdf.save('Invoice-Kenzie.pdf');
+
+            // Sembunyikan lagi
+            el.style.position = 'fixed';
+            el.style.left = '-9999px';
+        }
+    </script>
+</body>
+</html>
